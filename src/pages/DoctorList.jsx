@@ -12,7 +12,7 @@ export default function DoctorList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // --- Filter/search state (what the user is typing) ---
+  // --- Filter/search state (what the user is typing) --- 
   const [specialty, setSpecialty] = useState("");
   const [location, setLocation] = useState("");
   const [page, setPage] = useState(1);

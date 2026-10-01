@@ -6,7 +6,6 @@ const SlotPicker = ({ doctorId, onSlotSelect }) => {
     const [slots, setSlots] = useState([]);
     const [loading, setLoading] = useState(false);
 
-    // ডেট সিলেক্ট করলে API কল করে স্লট আনবে
     useEffect(() => {
         if (selectedDate) {
             setLoading(true);

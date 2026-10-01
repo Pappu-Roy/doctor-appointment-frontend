@@ -1,240 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ================= DESIGN TOKENS =================
+   রঙ "R G B" (কমা ছাড়া) আকারে রাখা হয়েছে, যাতে Tailwind এর
+   bg-brand/20 এর মতো opacity modifier কাজ করে। */
 :root {
-  --color-primary: #0f4c81;
-  --color-bg: #f7f9fb;
-  --color-border: #dbe4ee;
-  --color-text: #1f2937;
-  --color-muted: #6b7280;
-  --radius: 8px;
+  --bg: 246 248 252;
+  --surface: 255 255 255;
+  --surface2: 241 245 249;
+  --line: 226 232 240;
+  --fg: 15 23 42;
+  --muted: 100 116 139;
+  --brand: 13 148 136; /* teal-600 */
+  --accent: 79 70 229; /* indigo-600 */
+  --glow: 0.1;
+}
+.dark {
+  --bg: 8 12 20;
+  --surface: 15 22 35;
+  --surface2: 22 31 48;
+  --line: 35 47 68;
+  --fg: 232 237 245;
+  --muted: 139 151 173;
+  --brand: 20 184 166; /* teal-500 */
+  --accent: 129 140 248; /* indigo-400 */
+  --glow: 0.16;
+  color-scheme: dark; /* date/time input এর native UI ও dark হবে */
 }
 
-* {
-  box-sizing: border-box;
+@layer base {
+  html {
+    @apply bg-bg text-fg antialiased;
+  }
+  body {
+    @apply font-sans;
+    background-image:
+      radial-gradient(
+        60rem 28rem at 8% -10%,
+        rgb(var(--brand) / var(--glow)),
+        transparent 60%
+      ),
+      radial-gradient(
+        50rem 28rem at 100% 0%,
+        rgb(var(--accent) / var(--glow)),
+        transparent 60%
+      );
+    background-attachment: fixed;
+  }
+  ::selection {
+    @apply bg-brand/30;
+  }
 }
 
-body {
-  margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
-  background: var(--color-bg);
-  color: var(--color-text);
-}
+@layer components {
+  .card {
+    @apply rounded-2xl border border-line bg-surface/80 shadow-soft backdrop-blur-sm;
+  }
 
-.doctor-list-page {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 32px 20px;
-}
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
+           transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/60
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-gradient-to-r from-brand to-accent text-white shadow-glow hover:brightness-110 active:scale-[.98];
+  }
+  .btn-ghost {
+    @apply btn border border-line bg-surface2/60 text-fg hover:border-brand/50 hover:bg-surface2;
+  }
+  .btn-danger {
+    @apply btn border border-red-500/30 bg-red-500/10 text-red-500 hover:bg-red-500/20;
+  }
+  .btn-success {
+    @apply btn border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400;
+  }
 
-.doctor-list-page h1 {
-  color: var(--color-primary);
-  margin-bottom: 20px;
-}
-
-.filters {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.filters input {
-  flex: 1;
-  padding: 10px 14px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  font-size: 14px;
-}
-
-.error-text {
-  color: #b3261e;
-  background: #fdecea;
-  padding: 10px 14px;
-  border-radius: var(--radius);
-}
-
-.doctor-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 16px;
-}
-
-.doctor-card {
-  background: #fff;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.doctor-card__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-
-.doctor-card__header h3 {
-  margin: 0;
-}
-
-.doctor-card__specialty {
-  font-size: 12px;
-  color: var(--color-primary);
-  background: #e8f0fa;
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-
-.doctor-card__meta {
-  display: flex;
-  gap: 12px;
-  font-size: 13px;
-  color: var(--color-muted);
-}
-
-.doctor-card__bio {
-  font-size: 13px;
-  color: var(--color-muted);
-  margin: 0;
-}
-
-.doctor-card__footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 8px;
-}
-
-.doctor-card__fee {
-  font-weight: 600;
-}
-
-.doctor-card__footer button {
-  background: var(--color-primary);
-  color: #fff;
-  border: none;
-  padding: 8px 14px;
-  border-radius: var(--radius);
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 16px;
-  margin-top: 24px;
-}
-
-.pagination button {
-  padding: 8px 16px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  background: #fff;
-  cursor: pointer;
-}
-
-.pagination button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* --- Navbar --- */
-.navbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 20px;
-  background: #fff;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.navbar button {
-  background: transparent;
-  border: 1px solid var(--color-border);
-  padding: 6px 14px;
-  border-radius: var(--radius);
-  cursor: pointer;
-}
-
-.session-loading {
-  text-align: center;
-  padding: 60px 0;
-  color: var(--color-muted);
-}
-
-/* --- Auth forms --- */
-.auth-page {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-
-.auth-form {
-  background: #fff;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: 28px;
-  width: 100%;
-  max-width: 380px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.auth-form h2 {
-  margin: 0 0 4px 0;
-  color: var(--color-primary);
-}
-
-.auth-form label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--color-muted);
-}
-
-.auth-form input,
-.auth-form select {
-  padding: 10px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  font-size: 14px;
-  font-family: inherit;
-}
-
-.auth-form button[type="submit"] {
-  background: var(--color-primary);
-  color: #fff;
-  border: none;
-  padding: 10px;
-  border-radius: var(--radius);
-  font-size: 14px;
-  cursor: pointer;
-  margin-top: 4px;
-}
-
-.auth-form button[type="submit"]:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.auth-switch {
-  text-align: center;
-  font-size: 13px;
-  color: var(--color-muted);
-  margin: 0;
-}
-
-.link-button {
-  background: none;
-  border: none;
-  color: var(--color-primary);
-  cursor: pointer;
-  padding: 0;
-  font-size: 13px;
-  text-decoration: underline;
+  .input {
+    @apply w-full rounded-xl border border-line bg-surface2/60 px-3.5 py-2.5 text-sm text-fg
+           placeholder:text-muted/70 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/25;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-medium text-muted;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-brand/25 bg-brand/10 px-2.5 py-0.5 text-xs font-medium text-brand;
+  }
+  .skeleton {
+    @apply animate-pulse rounded-xl bg-line/70;
+  }
+  .gradient-text {
+    @apply bg-gradient-to-r from-brand to-accent bg-clip-text text-transparent;
+  }
 }

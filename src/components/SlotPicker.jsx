@@ -1,57 +1,127 @@
-import { useState, useEffect } from 'react';
-import api from '../services/api';
+import { useEffect, useMemo, useState } from "react";
+import { CalendarOff } from "lucide-react";
+import { getDoctorSlots } from "../services/doctor.service";
+import { errMsg, formatTime, toDateInputValue } from "../utils/format";
+import Spinner from "./Spinner";
 
-const SlotPicker = ({ doctorId, onSlotSelect }) => {
-    const [selectedDate, setSelectedDate] = useState('');
-    const [slots, setSlots] = useState([]);
-    const [loading, setLoading] = useState(false);
+const DAYS_AHEAD = 14;
+const WD_SHORT = ["রবি", "সোম", "মঙ্গল", "বুধ", "বৃহঃ", "শুক্র", "শনি"];
 
-    useEffect(() => {
-        if (selectedDate) {
-            setLoading(true);
-            api.get(`/doctors/${doctorId}/slots?date=${selectedDate}`) //[cite: 1]
-                .then(res => setSlots(res.data.slots))
-                .catch(err => console.error(err))
-                .finally(() => setLoading(false));
-        }
-    }, [selectedDate, doctorId]);
+/**
+ * Props:
+ *  doctorId, availability  — ডাক্তারের সাপ্তাহিক সময়সূচি (কোন কোন বার কাজ করেন)
+ *  selectedSlot, onSelect  — নির্বাচিত slot (parent এর state)
+ *  refreshKey              — বদলালে slot আবার আনে (যেমন 409 Conflict এর পর)
+ */
+export default function SlotPicker({ doctorId, availability = [], selectedSlot, onSelect, refreshKey = 0 }) {
+  const workingDays = useMemo(() => new Set(availability.map((a) => a.dayOfWeek)), [availability]);
 
+  // আজ থেকে ১৪ দিন। ডাক্তার যেদিন বসেন না সেদিন disabled।
+  const days = useMemo(
+    () =>
+      Array.from({ length: DAYS_AHEAD }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() + i);
+        return { key: toDateInputValue(d), date: d, today: i === 0, works: workingDays.has(d.getDay()) };
+      }),
+    [workingDays]
+  );
+
+  const [date, setDate] = useState(() => days.find((d) => d.works)?.key ?? null);
+  const [slots, setSlots] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!date) return;
+    let ignore = false; // পুরনো ধীর request নতুনটার ফল মুছে না দিতে
+    setLoading(true);
+    setError("");
+    getDoctorSlots(doctorId, date)
+      .then((data) => !ignore && setSlots(data.slots))
+      .catch((err) => !ignore && setError(errMsg(err, "স্লট আনতে সমস্যা হয়েছে।")))
+      .finally(() => !ignore && setLoading(false));
+    return () => {
+      ignore = true;
+    };
+  }, [doctorId, date, refreshKey]);
+
+  const freeCount = slots.filter((s) => s.available).length;
+
+  if (!date) {
     return (
-        <div className="p-4 bg-white rounded-lg shadow-sm border border-gray-100">
-            <h3 className="text-lg font-semibold mb-4 text-gray-800">অ্যপয়েন্টমেন্ট স্লট বেছে নিন</h3>
-            
-            {/* Date Input - Mobile Friendly */}
-            <input 
-                type="date" 
-                className="w-full p-3 mb-6 border rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                onChange={(e) => setSelectedDate(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-            />
-
-            {/* Slots Grid */}
-            {loading ? (
-                <div className="text-center text-gray-500 py-4">স্লট খোঁজা হচ্ছে...</div>
-            ) : (
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                    {slots.length > 0 ? slots.map((slot, idx) => {
-                        // ফ্রন্টএন্ডে ইউজারের লোকাল টাইমজোনে কনভার্ট করে দেখানো হবে[cite: 1]
-                        const localTime = new Date(slot.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                        return (
-                            <button 
-                                key={idx}
-                                onClick={() => onSlotSelect(slot)}
-                                className="py-2 px-3 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-600 hover:text-white transition-colors duration-200"
-                            >
-                                {localTime}
-                            </button>
-                        )
-                    }) : selectedDate && (
-                        <div className="col-span-full text-center text-red-500 text-sm py-4">এই দিনে কোনো স্লট ফাঁকা নেই।</div>
-                    )}
-                </div>
-            )}
-        </div>
+      <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-muted">
+        <CalendarOff size={28} />
+        ডাক্তার এখনো কোনো সময়সূচি দেননি।
+      </div>
     );
-};
+  }
 
-export default SlotPicker;
+  return (
+    <div>
+      {/* ---- তারিখের সারি ---- */}
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-3">
+        {days.map((d) => {
+          const active = d.key === date;
+          return (
+            <button
+              key={d.key}
+              disabled={!d.works}
+              onClick={() => {
+                setDate(d.key);
+                onSelect(null);
+              }}
+              className={`flex w-16 shrink-0 flex-col items-center rounded-2xl border px-2 py-2.5 transition ${
+                active
+                  ? "border-transparent bg-gradient-to-b from-brand to-accent text-white shadow-glow"
+                  : d.works
+                  ? "border-line bg-surface2/60 hover:border-brand/50"
+                  : "cursor-not-allowed border-line/50 opacity-35"
+              }`}
+            >
+              <span className="text-[11px] font-medium opacity-80">{d.today ? "আজ" : WD_SHORT[d.date.getDay()]}</span>
+              <span className="text-xl font-bold leading-tight">{d.date.toLocaleDateString("bn-BD", { day: "numeric" })}</span>
+              <span className="text-[11px] opacity-80">{d.date.toLocaleDateString("bn-BD", { month: "short" })}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ---- Slot grid ---- */}
+      <div className="mt-2 min-h-[8rem]">
+        {loading ? (
+          <div className="grid place-items-center py-10"><Spinner /></div>
+        ) : error ? (
+          <p className="rounded-xl bg-red-500/10 p-3 text-sm text-red-500">{error}</p>
+        ) : slots.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted">এই দিনে কোনো স্লট নেই।</p>
+        ) : (
+          <>
+            <p className="mb-3 text-xs text-muted">{freeCount.toLocaleString("bn-BD")}টি স্লট ফাঁকা</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {slots.map((s) => {
+                const selected = selectedSlot?.startTime === s.startTime;
+                return (
+                  <button
+                    key={s.startTime}
+                    disabled={!s.available}
+                    onClick={() => onSelect(s)}
+                    className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition ${
+                      selected
+                        ? "border-transparent bg-gradient-to-r from-brand to-accent text-white shadow-glow"
+                        : s.available
+                        ? "border-line bg-surface2/60 hover:border-brand hover:text-brand"
+                        : "cursor-not-allowed border-line/50 text-muted line-through opacity-40"
+                    }`}
+                  >
+                    {formatTime(s.startTime)}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

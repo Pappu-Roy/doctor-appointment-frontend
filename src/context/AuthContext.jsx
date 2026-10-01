@@ -4,34 +4,28 @@ import { setAccessToken } from "../services/api";
 
 const AuthContext = createContext(null);
 
+// ⚠️ FIX: React.StrictMode dev এ useEffect দুইবার চালায় → দুটো /auth/refresh একসাথে যেত।
+// Refresh token rotation থাকায় দ্বিতীয়টা ব্যর্থ হয়ে user কে logout করে দিতে পারত।
+// তাই একটাই promise বানিয়ে দুইবারেই সেটা ভাগ করে নিচ্ছি।
+let sessionPromise = null;
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-
-  // Why this flag exists: on the very first render, we don't yet know if
-  // the user is logged in (that requires an async call to /auth/refresh).
-  // Without this flag, the app would briefly flash the "logged out" UI
-  // even for someone who IS logged in, before the refresh call resolves.
   const [checkingSession, setCheckingSession] = useState(true);
 
-  // Runs ONCE when the app first mounts (empty dependency array []).
-  // This is the "silent login" described above: we ask the backend
-  // "does my refresh cookie still work?" instead of assuming logged-out.
   useEffect(() => {
-    async function trySilentLogin() {
-      try {
-        const result = await refreshAccessToken();
+    if (!sessionPromise) sessionPromise = refreshAccessToken();
+
+    sessionPromise
+      .then((result) => {
         setAccessToken(result.data.accessToken);
         setUser(result.data.user);
-      } catch {
-        // A failed refresh here just means "not logged in" — not a real
-        // error, so we deliberately don't setError or log anything scary.
+      })
+      .catch(() => {
         setAccessToken(null);
         setUser(null);
-      } finally {
-        setCheckingSession(false);
-      }
-    }
-    trySilentLogin();
+      })
+      .finally(() => setCheckingSession(false));
   }, []);
 
   async function login(credentials) {
@@ -42,27 +36,25 @@ export function AuthProvider({ children }) {
 
   async function register(payload) {
     await registerUser(payload);
-    // Deliberately NOT auto-logging in after register. Keeping register
-    // and login as two explicit, separate actions is simpler to reason
-    // about and matches what most real apps do (confirm email, etc. could
-    // slot in between the two later without restructuring this).
   }
 
   async function logout() {
-    await logoutUser();
-    setAccessToken(null);
-    setUser(null);
+    try {
+      await logoutUser();
+    } finally {
+      setAccessToken(null);
+      setUser(null);
+      sessionPromise = null; // পরে আবার login/refresh করলে যেন নতুন করে চেক হয়
+    }
   }
 
-  const value = { user, checkingSession, login, register, logout };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, checkingSession, login, register, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
-// Custom hook so components do `const { user, login } = useAuth()` instead
-// of importing useContext + AuthContext everywhere. The thrown error is a
-// safety net — it catches the mistake of using useAuth() outside <AuthProvider>
-// at development time instead of silently returning undefined.
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>");
